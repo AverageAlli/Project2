@@ -1,44 +1,26 @@
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/router';
+import prisma from '../../../lib/databaseConnect';
 
-const CardView = () => {
-    const router = useRouter();
-    const { id } = router.query;
-    const [card, setCard] = useState(null);
+export default async function handler(req, res) {
+  const { id } = req.query;
 
-    useEffect(() => {
-        if (id) {
-            const fetchCard = async () => {
-                const res = await fetch(`/api/cards/${id}`);
-                const data = await res.json();
-                setCard(data);
-            };
-            fetchCard();
-        }
-    }, [id]);
+  if (req.method === 'PUT') {
+    const { understoodLevel, nextReviewDate } = req.body;
 
-    const updateUnderstanding = async (amount) => {
-        await fetch(`/api/cards/${id}`, {
-            method: 'PUT',
-            body: JSON.stringify({ amount_understood: amount }),
-            headers: { 'Content-Type': 'application/json' },
-        });
-        router.push('/cards'); // redirect to the card list
-    };
+    const updatedCard = await prisma.card.update({
+      where: { id: parseInt(id) },
+      data: {
+        understoodLevel,
+        nextReviewDate: new Date(nextReviewDate),
+      },
+    });
 
-    if (!card) return <div>Loading...</div>;
-
-    return (
-        <div className="p-4">
-            <h1 className="text-2xl font-bold">{card.prompt}</h1>
-            <p>{card.answer}</p>
-            <div className="mt-4">
-                <button onClick={() => updateUnderstanding(100)} className="mr-2">Easy</button>
-                <button onClick={() => updateUnderstanding(70)} className="mr-2">Medium</button>
-                <button onClick={() => updateUnderstanding(30)}>Hard</button>
-            </div>
-        </div>
-    );
-};
-
-export default CardView;
+    res.status(200).json(updatedCard);
+  } else if (req.method === 'GET') {
+    const card = await prisma.card.findUnique({
+      where: { id: parseInt(id) },
+    });
+    res.status(200).json(card);
+  } else {
+    res.status(405).end();
+  }
+}
